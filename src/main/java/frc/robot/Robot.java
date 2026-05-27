@@ -1,5 +1,11 @@
 package frc.robot;
 
+import org.littletonrobotics.junction.LoggedRobot;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedNetworkNumber;
+import org.littletonrobotics.junction.networktables.NT4Publisher;
+import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.Encoder;
@@ -7,10 +13,12 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import frc.robot.util.LoggedTunableNumber;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.wpilibj.DriverStation;
 
-public class Robot extends TimedRobot {
+
+public class Robot extends LoggedRobot {
 
   // ---------------- MOTORS ----------------
   private final PWMSparkMax m_leftMotor = new PWMSparkMax(0);
@@ -34,22 +42,16 @@ public class Robot extends TimedRobot {
 
   private final double metersPerTick;
 
-  public Robot() {
+  private final LoggedTunableNumber kP_tunable = new LoggedTunableNumber("Tuning/kP");
+  private final LoggedTunableNumber kI_tunable = new LoggedTunableNumber("Tuning/kI");
+  private final LoggedTunableNumber kD_tunable = new LoggedTunableNumber("Tuning/kD");
 
-    // ---------------- LOGGING (AdvantageScope) ----------------
-    DataLogManager.start();
-    DriverStation.startDataLog(DataLogManager.getLog());
+  public Robot() {
 
     SendableRegistry.addChild(m_leftMotor, m_leftMotor);
     SendableRegistry.addChild(m_rightMotor, m_rightMotor);
 
     m_rightMotor.setInverted(true);
-
-    // ---------------- DASHBOARD GAINS ----------------
-    SmartDashboard.putNumber("Drive/kP", 0.1);
-    SmartDashboard.putNumber("Drive/kI", 0.0);
-    SmartDashboard.putNumber("Drive/kD", 0.0);
-    SmartDashboard.putNumber("Drive/MaxSpeed_mps", 3.0);
 
     // ---------------- ENCODER SETUP ----------------
     double wheelCircumference = Math.PI * WHEEL_DIAMETER_METERS;
@@ -60,12 +62,29 @@ public class Robot extends TimedRobot {
   }
 
   @Override
+  public void robotInit() {
+    Logger.addDataReceiver(new NT4Publisher());
+    Logger.addDataReceiver(new WPILOGWriter());
+
+    Logger.start();
+
+    SmartDashboard.putNumber("Drive/MaxSpeed_mps", 3.0);
+
+    kP_tunable.initDefault(0.1);
+    kI_tunable.initDefault(0.0);
+    kD_tunable.initDefault(0.0);
+
+    m_leftEncoder.setDistancePerPulse(metersPerTick);
+    m_rightEncoder.setDistancePerPulse(metersPerTick);
+  }
+
+  @Override
   public void teleopPeriodic() {
 
     // ---------------- READ GAINS ----------------
-    double kP = SmartDashboard.getNumber("Drive/kP", 0.1);
-    double kI = SmartDashboard.getNumber("Drive/kI", 0.0);
-    double kD = SmartDashboard.getNumber("Drive/kD", 0.0);
+    double kP = kP_tunable.get();
+    double kI = kI_tunable.get();
+    double kD = kD_tunable.get();
 
     m_leftPID.setPID(kP, kI, kD);
     m_rightPID.setPID(kP, kI, kD);
@@ -77,8 +96,8 @@ public class Robot extends TimedRobot {
     double rightTarget = -m_driverController.getRightY() * maxSpeed;
 
     // ---------------- ACTUAL SPEED (m/s) ----------------
-    double leftSpeed = m_leftEncoder.getRate() * metersPerTick;
-    double rightSpeed = m_rightEncoder.getRate() * metersPerTick;
+    double leftSpeed = m_leftEncoder.getRate();
+    double rightSpeed = m_rightEncoder.getRate();
 
     // ---------------- PID OUTPUT ----------------
     double leftOutput = m_leftPID.calculate(leftSpeed, leftTarget);
@@ -93,20 +112,21 @@ public class Robot extends TimedRobot {
     m_rightMotor.set(rightOutput);
 
     // ---------------- ADVANTAGESCOPE TELEMETRY ----------------
-    SmartDashboard.putNumber("Drive/LeftTarget_mps", leftTarget);
-    SmartDashboard.putNumber("Drive/RightTarget_mps", rightTarget);
 
-    SmartDashboard.putNumber("Drive/LeftSpeed_mps", leftSpeed);
-    SmartDashboard.putNumber("Drive/RightSpeed_mps", rightSpeed);
+    Logger.recordOutput("Debug/TeleopRunning", true);
+    Logger.recordOutput("Debug/LeftJoystick", m_driverController.getLeftY());
+    Logger.recordOutput("Debug/RightJoystick", m_driverController.getRightY());
+    
+    Logger.recordOutput("Drive/LeftTarget_mps", leftTarget);
+    Logger.recordOutput("Drive/RightTarget_mps", rightTarget);
 
-    SmartDashboard.putNumber("Drive/LeftError", leftTarget - leftSpeed);
-    SmartDashboard.putNumber("Drive/RightError", rightTarget - rightSpeed);
+    Logger.recordOutput("Drive/LeftSpeed_mps", leftSpeed);
+    Logger.recordOutput("Drive/RightSpeed_mps", rightSpeed);
+    Logger.recordOutput("Drive/LeftError", leftTarget - leftSpeed);
+    Logger.recordOutput("Drive/RightError", rightTarget - rightSpeed);
 
-    SmartDashboard.putNumber("Drive/LeftOutput", leftOutput);
-    SmartDashboard.putNumber("Drive/RightOutput", rightOutput);
-
-    SmartDashboard.putNumber("Drive/kP_live", kP);
-    SmartDashboard.putNumber("Drive/kI_live", kI);
-    SmartDashboard.putNumber("Drive/kD_live", kD);
+    Logger.recordOutput("Drive/LeftOutput", leftOutput);
+    Logger.recordOutput("Drive/RightOutput", rightOutput);
+    
   }
 }
