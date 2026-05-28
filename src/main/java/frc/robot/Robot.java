@@ -5,13 +5,11 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.sim.Drivetrain;
 import frc.robot.util.LoggedTunableNumber;
 
 public class Robot extends LoggedRobot {
@@ -41,8 +39,7 @@ public class Robot extends LoggedRobot {
   private final LoggedTunableNumber kP_tunable = new LoggedTunableNumber("Tuning/kP");
   private final LoggedTunableNumber kI_tunable = new LoggedTunableNumber("Tuning/kI");
   private final LoggedTunableNumber kD_tunable = new LoggedTunableNumber("Tuning/kD");
-
-  private final Drivetrain m_drivetrain = new Drivetrain();
+;
 
   public Robot() {
 
@@ -128,16 +125,4 @@ public class Robot extends LoggedRobot {
     
   }
 
-  @Override
-  public void robotPeriodic() {
-    m_drivetrain.periodic();
-
-    Pose2d pose = m_drivetrain.getPose();
-    Logger.recordOutput("Drive/Pose", pose);
-  }
-
-  @Override
-  public void simulationPeriodic() {
-    m_drivetrain.simulationPeriodic();
-  }
 }
