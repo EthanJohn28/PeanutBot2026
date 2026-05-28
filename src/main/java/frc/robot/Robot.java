@@ -14,27 +14,25 @@ import frc.robot.util.LoggedTunableNumber;
 
 public class Robot extends LoggedRobot {
 
-  // ---------------- MOTORS ----------------
+  // hardware
   private final PWMSparkMax m_leftMotor = new PWMSparkMax(0);
   private final PWMSparkMax m_rightMotor = new PWMSparkMax(1);
 
-  // ---------------- CONTROLLER ----------------
   private final XboxController m_driverController = new XboxController(0);
 
-  // ---------------- ENCODERS ----------------
   private final Encoder m_leftEncoder = new Encoder(0, 1);
   private final Encoder m_rightEncoder = new Encoder(2, 3);
 
-  // ---------------- PID ----------------
-  private final PIDController m_leftPID = new PIDController(0.1, 0.0, 0.0);
-  private final PIDController m_rightPID = new PIDController(0.1, 0.0, 0.0);
-
-  // ---------------- PHYSICAL CONSTANTS ----------------
+  // constants
   private final double WHEEL_DIAMETER_METERS = 0.1524; // 6 in wheel
   private final double ENCODER_TICKS_PER_REV = 2048;   // CHANGE if needed
   private final double GEAR_RATIO = 10.71;
 
   private final double metersPerTick;
+
+  // pid & pid telemetry
+  private final PIDController m_leftPID = new PIDController(0.1, 0.0, 0.0);
+  private final PIDController m_rightPID = new PIDController(0.1, 0.0, 0.0);
 
   private final LoggedTunableNumber kP_tunable = new LoggedTunableNumber("Tuning/kP");
   private final LoggedTunableNumber kI_tunable = new LoggedTunableNumber("Tuning/kI");
@@ -48,7 +46,7 @@ public class Robot extends LoggedRobot {
 
     m_rightMotor.setInverted(true);
 
-    // ---------------- ENCODER SETUP ----------------
+    // encoder setup
     double wheelCircumference = Math.PI * WHEEL_DIAMETER_METERS;
     metersPerTick = wheelCircumference / (ENCODER_TICKS_PER_REV * GEAR_RATIO);
 
@@ -76,7 +74,7 @@ public class Robot extends LoggedRobot {
   @Override
   public void teleopPeriodic() {
 
-    // ---------------- READ GAINS ----------------
+    // implement pid
     double kP = kP_tunable.get();
     double kI = kI_tunable.get();
     double kD = kD_tunable.get();
@@ -84,29 +82,28 @@ public class Robot extends LoggedRobot {
     m_leftPID.setPID(kP, kI, kD);
     m_rightPID.setPID(kP, kI, kD);
 
-    // ---------------- TARGET SPEED (m/s) ----------------
+    // values to log
     double maxSpeed = SmartDashboard.getNumber("Drive/MaxSpeed_mps", 3.0);
 
     double leftTarget = -m_driverController.getLeftY() * maxSpeed;
     double rightTarget = -m_driverController.getRightY() * maxSpeed;
 
-    // ---------------- ACTUAL SPEED (m/s) ----------------
+    // in m/s
     double leftSpeed = m_leftEncoder.getRate();
     double rightSpeed = m_rightEncoder.getRate();
 
-    // ---------------- PID OUTPUT ----------------
     double leftOutput = m_leftPID.calculate(leftSpeed, leftTarget);
     double rightOutput = m_rightPID.calculate(rightSpeed, rightTarget);
 
-    // ---------------- SAFETY CLAMP ----------------
+    // safety clamp (to not blow anything up)
     leftOutput = Math.max(-1.0, Math.min(1.0, leftOutput));
     rightOutput = Math.max(-1.0, Math.min(1.0, rightOutput));
 
-    // ---------------- DRIVE ----------------
+    // implements actual driving
     m_leftMotor.set(leftOutput);
     m_rightMotor.set(rightOutput);
 
-    // ---------------- ADVANTAGESCOPE TELEMETRY ----------------
+    // telemetry
 
     Logger.recordOutput("Debug/TeleopRunning", true);
     Logger.recordOutput("Debug/LeftJoystick", m_driverController.getLeftY());
