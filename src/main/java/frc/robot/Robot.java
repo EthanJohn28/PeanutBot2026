@@ -11,17 +11,21 @@ import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.util.LoggedTunableNumber;
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkBase.ResetMode;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.config.EncoderConfig;
+import com.revrobotics.spark.config.SparkBaseConfig;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.SparkBase;
 
 public class Robot extends LoggedRobot {
 
   // hardware
-  private final PWMSparkMax m_leftMotor = new PWMSparkMax(0);
-  private final PWMSparkMax m_rightMotor = new PWMSparkMax(1);
+  private final SparkMax m_leftMotor = new SparkMax(8, MotorType.kBrushless);
+  private final SparkMax m_rightMotor = new SparkMax(19, MotorType.kBrushless);
 
   private final XboxController m_driverController = new XboxController(0);
-
-  private final Encoder m_leftEncoder = new Encoder(0, 1);
-  private final Encoder m_rightEncoder = new Encoder(2, 3);
 
   // constants
   private final double WHEEL_DIAMETER_METERS = 0.1524; // 6 in wheel
@@ -37,21 +41,29 @@ public class Robot extends LoggedRobot {
   private final LoggedTunableNumber kP_tunable = new LoggedTunableNumber("Tuning/kP");
   private final LoggedTunableNumber kI_tunable = new LoggedTunableNumber("Tuning/kI");
   private final LoggedTunableNumber kD_tunable = new LoggedTunableNumber("Tuning/kD");
-;
+
 
   public Robot() {
-
-    SendableRegistry.addChild(m_leftMotor, m_leftMotor);
-    SendableRegistry.addChild(m_rightMotor, m_rightMotor);
-
-    m_rightMotor.setInverted(true);
-
     // encoder setup
     double wheelCircumference = Math.PI * WHEEL_DIAMETER_METERS;
     metersPerTick = wheelCircumference / (ENCODER_TICKS_PER_REV * GEAR_RATIO);
 
-    m_leftEncoder.reset();
-    m_rightEncoder.reset();
+    EncoderConfig leftConfig = new EncoderConfig();
+    EncoderConfig rightConfig = new EncoderConfig();
+
+    leftConfig.positionConversionFactor(metersPerTick);
+    rightConfig.positionConversionFactor(metersPerTick);
+
+    SparkMaxConfig leftSparkConfig = new SparkMaxConfig();
+    SparkMaxConfig rightSparkConfig = new SparkMaxConfig();
+
+    leftSparkConfig.apply(leftConfig);
+    rightSparkConfig.apply(rightConfig);
+
+    rightSparkConfig.inverted(true);
+
+    m_leftMotor.configure(leftSparkConfig, SparkBase.ResetMode.kNoResetSafeParameters, SparkBase.PersistMode.kNoPersistParameters);
+    m_rightMotor.configure(rightSparkConfig, SparkBase.ResetMode.kNoResetSafeParameters, SparkBase.PersistMode.kNoPersistParameters);
   }
 
   @Override
@@ -67,8 +79,7 @@ public class Robot extends LoggedRobot {
     kI_tunable.initDefault(0.0);
     kD_tunable.initDefault(0.0);
 
-    m_leftEncoder.setDistancePerPulse(metersPerTick);
-    m_rightEncoder.setDistancePerPulse(metersPerTick);
+    
   }
 
   @Override
@@ -89,8 +100,8 @@ public class Robot extends LoggedRobot {
     double rightTarget = -m_driverController.getRightY() * maxSpeed;
 
     // in m/s
-    double leftSpeed = m_leftEncoder.getRate();
-    double rightSpeed = m_rightEncoder.getRate();
+    double leftSpeed = m_leftMotor.getEncoder().getVelocity() / 60.0 * metersPerTick; // convert from RPM to m/s
+    double rightSpeed = m_rightMotor.getEncoder().getVelocity() / 60.0 * metersPerTick; // convert from RPM to m/s
 
     double leftOutput = m_leftPID.calculate(leftSpeed, leftTarget);
     double rightOutput = m_rightPID.calculate(rightSpeed, rightTarget);
@@ -108,7 +119,7 @@ public class Robot extends LoggedRobot {
     Logger.recordOutput("Debug/TeleopRunning", true);
     Logger.recordOutput("Debug/LeftJoystick", m_driverController.getLeftY());
     Logger.recordOutput("Debug/RightJoystick", m_driverController.getRightY());
-    
+
     Logger.recordOutput("Drive/LeftTarget_mps", leftTarget);
     Logger.recordOutput("Drive/RightTarget_mps", rightTarget);
 
